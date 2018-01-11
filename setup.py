@@ -21,7 +21,7 @@ with open(path.join(here, 'doc/README.rst'), encoding='utf-8') as f:
 setup(
 
     name='PyFiware',  # Required
-    version='0.5.0',  # Required
+    version='0.6.0',  # Required
 
     description='Python library to access Fiware REST API v2',
     long_description=long_description,  # Optional
