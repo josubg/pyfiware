@@ -68,7 +68,7 @@ class OrionManager:
 
         return self._pool_manager.request(body=body, **kwargs)
 
-    def get(self, entity_id):
+    def get(self, entity_id, entity_type=None):
         """ Get an entity form the context by its ID . If orion responses not found a None is returned.
 
         :param entity_id: The ID of the entity tha is retrieved
@@ -76,6 +76,8 @@ class OrionManager:
         :return: The entity or None
         """
         get_url = self.url_entities + '/' + entity_id
+        if entity_type:
+            get_url += "?type=" + entity_type
         response = self._request(
                 method="GET", url=get_url, headers=self.header_no_payload)
         if response.status // 200 != 1:
