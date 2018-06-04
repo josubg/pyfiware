@@ -113,7 +113,7 @@ class OrionManager:
 
         return json.loads(response.data.decode(self.codec))
 
-    def delete(self, entity_id, silent=False):
+    def delete(self, entity_id, silent=False, entity_type=None):
         """Delete a entity  from the Context broker.
 
         :param entity_id: Id of the entity to erase.
@@ -121,6 +121,8 @@ class OrionManager:
         :return: Nothing
         """
         get_url = self.url_entities + '/' + entity_id
+        if entity_type:
+            get_url += "?type=" + entity_type
 
         response = self._request(
                 method="DELETE", url=get_url, headers=self.header_no_payload)
