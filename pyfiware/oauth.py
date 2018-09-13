@@ -9,7 +9,21 @@ logger = getLogger()
 
 class OAuthManager:
 
-    secure_lapse = 10
+    def __init__(self,  oauth_server_url, client_id, client_secret, user, password, codec="utf-8",
+                 token=None, refresh_token=None,  secure_lapse=10):
+        self.codec = codec
+        self.oauth_server = oauth_server_url
+        self.user = user
+        self.password = password
+        self._client_id = client_id
+        self._client_secret = client_secret
+        self._encode()
+        self.PM = PoolManager()
+        self._bearer = None
+        self._token = token
+        self._refresh_token = refresh_token
+        self._expiration = None
+        self.secure_lapse = secure_lapse
 
     def _encode(self, ):
         self.packed_Auth = b64encode(bytes("{0}:{1}".format(
@@ -49,19 +63,7 @@ class OAuthManager:
         self.client_secret = value
         self._encode()
 
-    def __init__(self,  oauth_server_url, client_id, client_secret, user, password, codec="utf-8"):
-        self.codec = codec
-        self.oauth_server = oauth_server_url
-        self.user = user
-        self.password = password
-        self._client_id = client_id
-        self._client_secret = client_secret
-        self._encode()
-        self.PM = PoolManager()
-        self._bearer = None
-        self._token = None
-        self._refresh_token = None
-        self._expiration = None
+
 
     def _login(self):
 
