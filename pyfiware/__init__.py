@@ -1,5 +1,8 @@
 from urllib3 import PoolManager
 import json
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 class FiException(Exception):
@@ -21,21 +24,21 @@ class OrionManager:
     }
 
     @property
-    def scopes(self):
-        return self._scopes
+    def service_path(self):
+        return self._service_path
 
-    @scopes.setter
-    def scopes(self, value):
+    @service_path.setter
+    def service_path(self, value):
         if value is None:
-            self._scopes = None
+            self._service_path = None
         elif type(value) == list:
-            self._scopes = ", ".join(value)
+            self._service_path = ", ".join(value)
         elif type(value) == str:
-            self._scopes = value
+            self._service_path = value
         else:
-            raise Exception("scopes must be list or string")
+            raise Exception("service_path must be list or string")
 
-    def __init__(self, host, codec="utf-8", scopes=None):
+    def __init__(self, host, codec="utf-8", service=None, service_path=None, oauth_connector=None):
         """ Initialize the Manager.
 
         :param host: The url of the NGSI API  (Ending  '/' will be removed )
@@ -53,20 +56,28 @@ class OrionManager:
         self.batch = self.base_url
 
         self.codec = codec
-        self._scopes = None
-        self.scopes = scopes
+        self.service = service
+        self._service_path = None
+        self.service_path = service_path
 
         self._pool_manager = PoolManager()
+
+        # OAUTH
+        self.oauth = oauth_connector
 
     def _request(self, body=None, **kwargs):
         """Send a request to the Context Broker"""
         if body:
             body = json.dumps(body)
-        if self.scopes:
-            kwargs["headers"] = kwargs.get("headers", {}).copy()
-            kwargs["headers"]["Fiware-ServicePath"] = self.scopes
-
-        return self._pool_manager.request(body=body, **kwargs)
+        headers = kwargs.pop("headers", {}).copy()
+        if self.service:
+            headers["Fiware-Service"] = self.service
+        if self.service_path:
+            headers["Fiware-ServicePath"] = self.service_path
+        if self.oauth:
+            headers["X-Auth-Token"] = self.oauth.token
+        logger.debug("URL %s\nHEADERS %s\nBODY %s\n", kwargs['url'], headers, body)
+        return self._pool_manager.request(body=body, headers=headers, **kwargs)
 
     def get(self, entity_id, entity_type=None):
         """ Get an entity form the context by its ID . If orion responses not found a None is returned.
