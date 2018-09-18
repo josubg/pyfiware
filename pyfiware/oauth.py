@@ -4,7 +4,7 @@ from time import time
 from urllib3 import PoolManager
 from logging import getLogger
 
-logger = getLogger()
+logger = getLogger(__name__)
 
 
 class OAuthManager:
@@ -47,7 +47,7 @@ class OAuthManager:
 
     @property
     def client_id(self):
-        return  self._client_id
+        return self._client_id
 
     @client_id.setter
     def client_id(self, value):
@@ -62,8 +62,6 @@ class OAuthManager:
     def client_secret(self, value):
         self.client_secret = value
         self._encode()
-
-
 
     def _login(self):
 

@@ -7,11 +7,14 @@ logger = getLogger(__name__)
 
 class FiException(Exception):
     """Exception produced by a context broker response"""
-    pass
+    def __init__(self, status, message, *args, **kwargs):
+        super().__init__(self, status, message, *args, **kwargs)
+        self.status = status
+        self.message = message
 
 
-class OrionManager:
-    """ Manages entities in the Orion context broker through its REST API.
+class OrionConnector:
+    """ Connects to the Orion context broker and provide easy use for its REST API.
 
     """
     version = "v2"
@@ -23,12 +26,20 @@ class OrionManager:
         "Content-Type": "application/json"
     }
 
+    _pool_manager = PoolManager()
+
     @property
     def service_path(self):
+        """ Service path as string"""
         return self._service_path
 
     @service_path.setter
     def service_path(self, value):
+        """ Service path to include in commands
+
+        :param value: service paths as list
+        :return:
+        """
         if value is None:
             self._service_path = None
         elif type(value) == list:
@@ -39,7 +50,7 @@ class OrionManager:
             raise Exception("service_path must be list or string")
 
     def __init__(self, host, codec="utf-8", service=None, service_path=None, oauth_connector=None):
-        """ Initialize the Manager.
+        """ Initialize the connector.
 
         :param host: The url of the NGSI API  (Ending  '/' will be removed )
         :param codec: The codec used  decoding responses.
@@ -59,8 +70,6 @@ class OrionManager:
         self.service = service
         self._service_path = None
         self.service_path = service_path
-
-        self._pool_manager = PoolManager()
 
         # OAUTH
         self.oauth = oauth_connector
@@ -83,6 +92,7 @@ class OrionManager:
         """ Get an entity form the context by its ID . If orion responses not found a None is returned.
 
         :param entity_id: The ID of the entity tha is retrieved
+        :param entity_type: The entity type that the entities must match .
 
         :return: The entity or None
         """
@@ -93,8 +103,9 @@ class OrionManager:
                 method="GET", url=get_url, headers=self.header_no_payload)
         if response.status // 200 != 1:
             if response.status == 404:
+                logger.debug("Not found: %s", get_url)
                 return None
-            raise FiException("Error%s: %s", response.status, response.data.decode(self.codec))
+            raise FiException(response.status, "Error{}: {}".format(response.status, response.data.decode(self.codec)))
 
         return json.loads(response.data.decode(self.codec))
 
@@ -104,6 +115,7 @@ class OrionManager:
         :param entity_type: The entity type that the entities must match .
         :param id_pattern: The entity id pattern that the entities must match.
         :param query: The query that the entities must match.
+
         :return: A list of entities or None
         """
 
@@ -114,21 +126,23 @@ class OrionManager:
             fields["idPattern"] = id_pattern
         if query:
             fields["q"] = query
-
+        logger.debug("REQUEST to %s\n %s ", self.url_entities, fields)
         response = self._request(
                 method="GET",  url=self.url_entities, headers=self.header_no_payload, fields=fields)
         if response.status // 200 != 1:
             if response.status == 404:
+                logger.info("Not found: %s, \nfields: %s", self.url_entities, fields)
                 return []
-            raise FiException("Error%s: %s", response.status, response.data.decode(self.codec))
-
+            raise FiException(response.status, "Error{}: {}".format(response.status, response.data.decode(self.codec)))
         return json.loads(response.data.decode(self.codec))
 
     def delete(self, entity_id, silent=False, entity_type=None):
         """Delete a entity  from the Context broker.
 
+        :param entity_type: Restrict the search to specific type.
         :param entity_id: Id of the entity to erase.
         :param silent: Not produce error if the entity is not found.
+
         :return: Nothing
         """
         get_url = self.url_entities + '/' + entity_id
@@ -139,10 +153,12 @@ class OrionManager:
                 method="DELETE", url=get_url, headers=self.header_no_payload)
         if response.status // 200 != 1:
             if response.status != 404 or not silent:
-                raise FiException("Error%s: %s", response.status, response.data.decode(self.codec))
+                logger.debug("Not found: %s", get_url)
+                raise FiException(response.status,
+                                  "Error{}: {}".format(response.status, response.data.decode(self.codec)))
 
     def create(self, element_id, element_type, **attributes):
-        """ Create a Entity in the context broker. The entities can be passed as parametters or as a dictionary with **
+        """ Create a Entity in the context broker. The entities can be passed as parameters or as a dictionary with **
         or attributes.
 
         Examples:
@@ -154,7 +170,8 @@ class OrionManager:
         :param element_id: The ID of the entity
         :param element_type: The Type on the entity
         :param attributes:  The attributes for the entity.
-        :return:
+
+        :return: Nothing
         """
 
         body = {'id': element_id, "type": element_type}
@@ -170,7 +187,7 @@ class OrionManager:
         response = self._request(
             method="POST", url=self.url_entities, body=body, headers=self.header_payload)
         if response.status // 200 != 1:
-            raise FiException("Error%s: %s", response.status, response.data.decode(self.codec))
+            raise FiException(response.status, "Error{}: {}".format(response.status, response.data.decode(self.codec)))
 
     def patch(self, element_id, silent=False, **attributes):
 
@@ -180,11 +197,14 @@ class OrionManager:
                 method="PATCH", url=url, body=attributes, headers=self.header_payload)
         if response.status // 200 != 1:
             if response.status != 404 or not silent:
-                raise FiException("Error%s: %s", response.status, response.data.decode(self.codec))
+                logger.debug("Not found: %s", url)
+                raise FiException(response.status,
+                                  "Error{}: {}".format(response.status, response.data.decode(self.codec)))
 
     def unsubscribe(self, url=None, subscription_id=None):
         if (url is None) == (subscription_id is None):
-            raise FiException()
+            raise FiException(None, "Set URL or subscription_id")
+
         subscription_url = ""
         if url:
             subscription_url = "/".join((self.host, url))
@@ -194,7 +214,8 @@ class OrionManager:
         response = self._request(
             method="DELETE", url=subscription_url)
         if response.status // 200 != 1:
-            raise FiException("Error%s: %s", response.status, response.data.decode(self.codec))
+            raise FiException(response.status,
+                              "Error{}: {}".format(response.status, response.data.decode(self.codec)))
 
     def subscribe(self, description,
                   entities, condition_attributes=None, condition_expression=None,
@@ -226,7 +247,7 @@ class OrionManager:
 
         # Check if one and only one is defined
         if (notification_attrs is None) == (notification_attrs_blacklist is None):
-            raise Exception("One and only one of nottification_attrs and nottification_attrs_blackist can be set")
+            raise Exception("One and only one of notification_attrs and notification_attrs_blacklist can be set")
         if notification_attrs:
             notification["attrs"] = notification_attrs
         if notification_attrs_blacklist:
@@ -251,7 +272,8 @@ class OrionManager:
         response = self._request(
                 method="POST", url=self.url_subscriptions, body=subscription, headers=self.header_payload)
         if response.status // 200 != 1:
-            raise FiException("Error%s: %s", response.status, response.data.decode(self.codec))
+            raise FiException(response.status,
+                              "Error{}: {}".format(response.status, response.data.decode(self.codec)))
 
         return response.headers["location"].split('/')[-1], response.headers["location"]
 
@@ -271,7 +293,8 @@ class OrionManager:
         response = self._request(
             method="GET", url=url, fields=fields, headers=self.header_no_payload)
         if response.status // 200 != 1:
-            raise FiException("Error%s: %s", response.status, response.data.decode(self.codec))
+            raise FiException(response.status,
+                              "Error{}: {}".format(response.status, response.data.decode(self.codec)))
         data = json.loads(response.data.decode(self.codec))
         if type(data) is list and len(data) == 1:
             return data[0]
@@ -340,4 +363,5 @@ class OrionManager:
             method="PATCH", url=self.url_subscriptions + "/" + subscription_id,
             body=subscription, headers=self.header_payload)
         if response.status // 200 != 1:
-            raise FiException("Error%s: %s", response.status, response.data.decode(self.codec))
+            raise FiException(response.status,
+                              "Error{}: {}".format(response.status, response.data.decode(self.codec)))
