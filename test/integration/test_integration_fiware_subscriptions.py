@@ -1,13 +1,13 @@
 import json
 from unittest import TestCase
-from pyfiware import OrionManager, FiException
+from pyfiware import OrionConnector, FiException
 
 
 class TestCaseFiwareSubscriptions(TestCase):
     url = "http://127.0.0.1:1026"
 
     def setUp(self):
-        self.fiware_manager = OrionManager(self.url)
+        self.fiware_manager = OrionConnector(self.url)
 
     def tearDown(self):
         self._clear_subscriptions()

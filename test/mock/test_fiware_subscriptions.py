@@ -1,7 +1,7 @@
 from unittest import TestCase
 from unittest.mock import patch, Mock
 
-from pyfiware import OrionManager, FiException
+from pyfiware import OrionConnector, FiException
 from test.mock.test_fiware_entities import DummyResponse
 
 
@@ -9,9 +9,9 @@ class TestFiwareManagerSubscriptions(TestCase):
     url = "http://127.0.0.1:1026"
 
     def setUp(self):
-        self.fiware_manager = OrionManager(self.url)
+        self.fiware_manager = OrionConnector(self.url)
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=201,
         data='',
         headers={'location': 'URL'}
@@ -68,7 +68,7 @@ class TestFiwareManagerSubscriptions(TestCase):
 
         )
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=403,
         data='Something goes wrong',
     )))
@@ -85,7 +85,7 @@ class TestFiwareManagerSubscriptions(TestCase):
                 throttling=5
                 )
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=201,
         data='',
         headers={'location': 'URL'}
@@ -99,7 +99,7 @@ class TestFiwareManagerSubscriptions(TestCase):
 
         )
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=201,
         data='',
         headers={'location': 'URL'}
@@ -112,7 +112,7 @@ class TestFiwareManagerSubscriptions(TestCase):
             url=self.url + '/v2/subscriptions/'+"fakeID",
         )
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=401,
         data='Something goes wrong',
     )))
@@ -120,7 +120,7 @@ class TestFiwareManagerSubscriptions(TestCase):
         with self.assertRaises(FiException):
             self.fiware_manager.unsubscribe(url="v2/subscriptions/fakeURL")
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=201,
         data="""{
             "description": "One subscription to rule them all",
@@ -156,7 +156,7 @@ class TestFiwareManagerSubscriptions(TestCase):
     def test_subscription(self):
         self.fiware_manager.subscriptions(subscription_id="fakeURL")
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=403,
         data='Something goes wrong',
     )))
@@ -164,7 +164,7 @@ class TestFiwareManagerSubscriptions(TestCase):
         with self.assertRaises(FiException):
             self.fiware_manager.subscriptions(subscription_id="fakeURL")
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=201,
         data=''
     )))
@@ -182,7 +182,7 @@ class TestFiwareManagerSubscriptions(TestCase):
             headers={'Content-Type': 'application/json', 'Accept': 'application/json'}
         )
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=401,
         data=''
     )))

@@ -1,7 +1,7 @@
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
-from pyfiware import OrionManager, FiException
+from pyfiware import OrionConnector, FiException
 
 
 class DummyResponse:
@@ -15,16 +15,16 @@ class TestFiwareManagerQueries(TestCase):
     url = "http://127.0.0.1:1026"
 
     def setUp(self):
-        self.fiware_manager = OrionManager(self.url)
+        self.fiware_manager = OrionConnector(self.url)
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
             status=404,
             data='{"error":"NotFound","description":"The requested entity has not been found. Check type and id"}')))
     def test_get_by_id_empty(self):
         response = self.fiware_manager.get("wrongID")
         self.assertIsNone(response, "Not empty response")
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
             status=200,
             data='{"id":"CorrectID","type":"fake"}'
     )))
@@ -33,7 +33,7 @@ class TestFiwareManagerQueries(TestCase):
         response = self.fiware_manager.get(correct_id)
         self.assertEqual(response["id"], correct_id, "Not correct element")
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=200,
         data='{"id":"CorrectID","type":"fake"}'
     )))
@@ -48,7 +48,7 @@ class TestFiwareManagerQueries(TestCase):
             }
         )
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=500,
         data='{"error":"Everything Blew up"}'
     )))
@@ -56,7 +56,7 @@ class TestFiwareManagerQueries(TestCase):
         with self.assertRaises(FiException):
             self.fiware_manager.get("NOSENSE")
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=404,
         data='{"error":"NotFound","description":"The requested entity has not been found. Check type and id"}'
     )))
@@ -66,7 +66,7 @@ class TestFiwareManagerQueries(TestCase):
         response = self.fiware_manager.search(entity_type="WrongType")
         self.assertEqual(response, [], "Not empty response")
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=200,
         data='[{"id":"CorrectID","type":"fake"}]'
     )))
@@ -75,7 +75,7 @@ class TestFiwareManagerQueries(TestCase):
         self.assertEqual(type(response), list, "Not a list")
         self.assertEqual(len(response), 1, "Not unique")
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
             status=200,
             data='[{"id":"1","type":"fake"},' +
             '{"id":"2","type":"fake"}]'
@@ -85,7 +85,7 @@ class TestFiwareManagerQueries(TestCase):
         self.assertEqual(type(response), list, "Not a list")
         self.assertGreater(len(response), 1, "Unique results")
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=500,
         data='{"error":"Everything Blew up"}'
     )))
@@ -95,7 +95,7 @@ class TestFiwareManagerQueries(TestCase):
         with self.assertRaises(FiException):
             self.fiware_manager.search()
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=200,
         data='[{"id":"CorrectID","type":"fake"}]'
     )))
@@ -112,7 +112,7 @@ class TestFiwareManagerQueries(TestCase):
             }
         )
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
             status=200,
             data='[{"id":"CorrectID","type":"fake"}]'
         )))
@@ -134,9 +134,9 @@ class TestFiwareManagerCreations(TestCase):
     url = "http://127.0.0.1:1026"
 
     def setUp(self):
-        self.fiware_manager = OrionManager(self.url)
+        self.fiware_manager = OrionConnector(self.url)
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
             status=201,
             data=''
         )))
@@ -155,7 +155,7 @@ class TestFiwareManagerCreations(TestCase):
             }
         )
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
             status=201,
             data=''
         )))
@@ -179,7 +179,7 @@ class TestFiwareManagerCreations(TestCase):
             }
         )
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=201,
         data=''
     )))
@@ -203,7 +203,7 @@ class TestFiwareManagerCreations(TestCase):
             }
         )
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=403,
         data=''
     )))
@@ -211,7 +211,7 @@ class TestFiwareManagerCreations(TestCase):
         with self.assertRaises(FiException):
             self.fiware_manager.create(element_id="1", element_type="fake", **{'weight': 300, 'size': "100l"})
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=201,
         data=''
     )))
@@ -219,7 +219,7 @@ class TestFiwareManagerCreations(TestCase):
         with self.assertRaises(TypeError):
             self.fiware_manager.create(entity_type="fake")
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=201,
         data=''
     )))
@@ -232,9 +232,9 @@ class TestFiwareManagerDeletions(TestCase):
     url = "http://127.0.0.1:1026"
 
     def setUp(self):
-        self.fiware_manager = OrionManager(self.url)
+        self.fiware_manager = OrionConnector(self.url)
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=404,
         data=''
     )))
@@ -242,14 +242,14 @@ class TestFiwareManagerDeletions(TestCase):
         with self.assertRaises(FiException):
             self.fiware_manager.delete(entity_id="1")
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=404,
         data=''
     )))
     def test_delete_fails_silent(self):
         self.fiware_manager.delete(entity_id="1", silent=True)
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=500,
         data=''
     )))
@@ -257,7 +257,7 @@ class TestFiwareManagerDeletions(TestCase):
         with self.assertRaises(FiException):
             self.fiware_manager.delete(entity_id="1", silent=True)
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=200,
         data=''
     )))
@@ -277,9 +277,9 @@ class TestFiwareManagerPatch(TestCase):
     url = "http://127.0.0.1:1026"
 
     def setUp(self):
-        self.fiware_manager = OrionManager(self.url)
+        self.fiware_manager = OrionConnector(self.url)
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=204,
         data=''
     )))
@@ -316,7 +316,7 @@ class TestFiwareManagerPatch(TestCase):
 
         )
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=404,
         data=''
     )))
@@ -335,7 +335,7 @@ class TestFiwareManagerPatch(TestCase):
         with self.assertRaises(FiException):
             self.fiware_manager.patch(element_id="1", **attributes)
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=404,
         data=''
     )))
@@ -353,7 +353,7 @@ class TestFiwareManagerPatch(TestCase):
 
         self.fiware_manager.patch(element_id="1", silent=True, **attributes)
 
-    @patch.object(OrionManager, "_request", Mock(return_value=DummyResponse(
+    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=500,
         data=''
     )))

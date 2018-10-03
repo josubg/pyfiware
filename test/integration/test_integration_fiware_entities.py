@@ -1,7 +1,7 @@
 import json
 from unittest import TestCase
 
-from pyfiware import OrionManager, FiException
+from pyfiware import OrionConnector, FiException
 from urllib3 import PoolManager
 
 
@@ -45,7 +45,7 @@ class FiwareTestCase(TestCase):
         self._clear_entities()
 
     def setUp(self):
-        self.fiware_manager = OrionManager(self.url)
+        self.fiware_manager = OrionConnector(self.url)
         self._clear_entities()
 
 
