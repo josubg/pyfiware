@@ -5,8 +5,7 @@ https://packaging.python.org/en/latest/distributing.html
 https://github.com/pypa/sampleproject
 """
 
-# Always prefer setuptools over distutils
-from setuptools import setup, find_packages
+from setuptools import setup
 # To use a consistent encoding
 from codecs import open
 from os import path
@@ -20,21 +19,15 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
 
-    name='PyFiware',  # Required
-    version='0.12',  # Required
-
+    name='PyFiware',
+    version='0.12',
     description='Python library to access Fiware REST API v2',
-    long_description=long_description,  # Optional
 
-    url='https://github.com/josubg/pyfiware',  # Optional
+    long_description=long_description,
+    url='https://github.com/josubg/pyfiware',
+    author='Josu Bermudez',
+    author_email='josu.bermudez@deusto.es',
 
-
-    author='Josu Bermudez',  # Optional
-    author_email='josu.bermudez@deusto.es',  # Optional
-
-    # Classifiers help users find your project by categorizing it.
-    #
-    # For a list of valid classifiers, see
     # https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[  # Optional
         'Development Status :: 3 - Alpha',
@@ -46,6 +39,4 @@ setup(
 
     packages=['pyfiware'],
     install_requires=['urllib3'],
-
-
 )
