@@ -109,17 +109,23 @@ class OrionConnector:
 
         return json.loads(response.data.decode(self.codec))
 
-    def search(self, entity_type=None, id_pattern=None, query=None):
+    def search(self, entity_type=None, id_pattern=None, query=None, limit=None, offset=None):
         """ Get the list of the entities that match the provided entity class, id pattern and/or query.
 
         :param entity_type: The entity type that the entities must match .
         :param id_pattern: The entity id pattern that the entities must match.
         :param query: The query that the entities must match.
+        :param limit: The limit of returned entities(Unset limit is equal to 20)
+        :param offset: The offset of returned entities, for paginated search.
 
         :return: A list of entities or None
         """
 
         fields = {}
+        if limit:
+            fields["limit"] = limit
+        if offset:
+            fields["offset"] = offset
         if entity_type:
             fields["type"] = entity_type
         if id_pattern:
