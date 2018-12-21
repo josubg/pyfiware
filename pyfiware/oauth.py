@@ -72,8 +72,11 @@ class OAuthManager:
         body = "grant_type=password&username=" + self.user + "&password=" + self.password
 
         logger.debug("URL %s\nHEADERS %s\nBODY %s\n", url, headers, body)
-
-        r = self.PM.request(method='POST', url=url, headers=headers, body=body)
+        try :
+            r = self.PM.request(method='POST', url=url, headers=headers, body=body)
+        except Exception as ex:
+            logger.warning("Unable to get Auth token: %s", ex)
+            return None
         if r.status // 100 != 2:
             raise Exception("Orion Failed:%s ", r.status)
 
