@@ -109,21 +109,21 @@ class OrionConnector:
 
         return json.loads(response.data.decode(self.codec))
 
-    def search(self, entity_type=None, id_pattern=None, query=None, limit=None, offset=None):
+    def search(self, entity_type=None, id_pattern=None, query=None, limit=0, offset=0):
         """ Get the list of the entities that match the provided entity class, id pattern and/or query.
 
         :param entity_type: The entity type that the entities must match .
         :param id_pattern: The entity id pattern that the entities must match.
         :param query: The query that the entities must match.
-        :param limit: The limit of returned entities(Unset limit is equal to 20)
+        :param limit: The limit of returned entities. Zero, the default value, means unlimited
         :param offset: The offset of returned entities, for paginated search.
 
         :return: A list of entities or None
         """
 
-        fields = {}
-        if limit:
-            fields["limit"] = limit
+        fields = {"options": "count"}
+
+        fields["limit"] = limit if limit and limit <= 1000 else 1000
         if offset:
             fields["offset"] = offset
         if entity_type:
@@ -140,7 +140,14 @@ class OrionConnector:
                 logger.info("Not found: %s, \nfields: %s", self.url_entities, fields)
                 return []
             raise FiException(response.status, "Error{}: {}".format(response.status, response.data.decode(self.codec)))
-        return json.loads(response.data.decode(self.codec))
+        results = json.loads(response.data.decode(self.codec))
+        total_count = int(response.headers["fiware-total-count"])
+        count = len(results)
+        if not limit:
+            limit = total_count
+        if total_count - offset >= limit > count:
+            results.extend(self.search(entity_type, id_pattern, query,  limit=limit-count, offset=offset + count))
+        return results
 
     def delete(self, entity_id, silent=False, entity_type=None):
         """Delete a entity  from the Context broker.
