@@ -120,10 +120,8 @@ class OrionConnector:
 
         :return: A list of entities or None
         """
-
-        fields = {"options": "count"}
-
-        fields["limit"] = limit if limit and limit <= 1000 else 1000
+        fields = {"options": "count",
+                  "limit": limit if limit and limit <= 1000 else 1000}
         if offset:
             fields["offset"] = offset
         if entity_type:
@@ -171,6 +169,21 @@ class OrionConnector:
                                   "Error{}: {}".format(response.status, response.data.decode(self.codec)))
 
     def create(self, element_id, element_type, **attributes):
+        body = {'id': element_id, "type": element_type}
+
+        for key in attributes:
+            type_name = type(attributes[key]).__name__.capitalize()
+            if type_name == "Str":
+                type_name = "String"
+            if type_name == "Int":
+                type_name = "Integer"
+            if type_name == "Dict":
+                type_name = "StructuredValue"
+            body[key] = {'value': attributes[key], "type": type_name}
+
+        self.create_raw(element_id, element_type, **body)
+
+    def create_raw(self, element_id, element_type, **attributes):
         """ Create a Entity in the context broker. The entities can be passed as parameters or as a dictionary with **
         or attributes.
 
@@ -186,19 +199,13 @@ class OrionConnector:
 
         :return: Nothing
         """
-
-        body = {'id': element_id, "type": element_type}
-
-        for key in attributes:
-            type_name = type(attributes[key]).__name__.capitalize()
-            if type_name == "Str":
-                type_name = "Text"
-            if type_name == "Int":
-                type_name = "Integer"
-            body[key] = {'value': attributes[key], "type": type_name}
+        if element_id:
+            attributes["id"] = element_id
+        if element_type:
+            attributes["type"] = element_type
 
         response = self._request(
-            method="POST", url=self.url_entities, body=body, headers=self.header_payload)
+            method="POST", url=self.url_entities, body=attributes, headers=self.header_payload)
         if response.status // 200 != 1:
             raise FiException(response.status, "Error{}: {}".format(response.status, response.data.decode(self.codec)))
 
