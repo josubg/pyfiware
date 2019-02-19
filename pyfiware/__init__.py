@@ -202,14 +202,14 @@ class OrionConnector:
         if response.status // 200 != 1:
             raise FiException(response.status, "Error{}: {}".format(response.status, response.data.decode(self.codec)))
 
-    def patch(self, element_id, silent=False, **attributes):
+    def patch(self, element_id, element_type, **attributes):
 
-        url = self.url_entities + "/" + element_id + "/attrs"
+        url = self.url_entities + "/" + element_id + "/attrs?type=" + element_type
 
         response = self._request(
                 method="PATCH", url=url, body=attributes, headers=self.header_payload)
         if response.status // 200 != 1:
-            if response.status != 404 or not silent:
+            if response.status != 404:
                 logger.debug("Not found: %s", url)
                 raise FiException(response.status,
                                   "Error{}: {}".format(response.status, response.data.decode(self.codec)))
