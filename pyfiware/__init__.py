@@ -109,7 +109,8 @@ class OrionConnector:
 
         return json.loads(response.data.decode(self.codec))
 
-    def search(self, entity_type=None, id_pattern=None, query=None, limit=0, offset=0):
+    def search(self, entity_type=None, id_pattern=None, query=None,
+               georel=None, geometry=None, coords=None, limit=0, offset=0):
         """ Get the list of the entities that match the provided entity class, id pattern and/or query.
 
         :param entity_type: The entity type that the entities must match .
@@ -117,6 +118,9 @@ class OrionConnector:
         :param query: The query that the entities must match.
         :param limit: The limit of returned entities. Zero, the default value, means unlimited
         :param offset: The offset of returned entities, for paginated search.
+
+
+        :param georel
 
         :return: A list of entities or None
         """
@@ -130,6 +134,24 @@ class OrionConnector:
             fields["idPattern"] = id_pattern
         if query:
             fields["q"] = query
+
+        if georel and geometry and coords:
+            if not (georel in ["coveredBy", "intersects", "equals", "disjoint"] or georel.startswith("near")):
+                raise FiException("(%s) is not a valid spatial relationship(georel).", georel)
+            if geometry not in ["point", "line", "polygon", "box"]:
+                raise FiException("(%s) is not a valid geometry.", geometry)
+            fields["georel"] = georel
+            fields["geometry"] = geometry
+            fields["coords"] = coords
+
+        elif georel and geometry and coords:
+            raise FiException(
+                "Geographical Queries requires  georel, geometry and coords  attributes.%s %s %s",
+                "georel not set!" if georel is None else ""
+                "geometry not set!" if geometry is None else "",
+                "coords not set!" if coords is None else ""
+            )
+
         logger.debug("REQUEST to %s\n %s ", self.url_entities, fields)
         response = self._request(
                 method="GET",  url=self.url_entities, headers=self.header_no_payload, fields=fields)
