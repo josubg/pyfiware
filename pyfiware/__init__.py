@@ -118,7 +118,7 @@ class OrionConnector:
         :param query: The query that the entities must match.
         :param limit: The limit of returned entities. Zero, the default value, means unlimited
         :param offset: The offset of returned entities, for paginated search.
-
+        :param geometry:
 
         :param georel
 
@@ -144,7 +144,7 @@ class OrionConnector:
             fields["geometry"] = geometry
             fields["coords"] = coords
 
-        elif georel and geometry and coords:
+        elif georel or geometry or coords:
             raise FiException(
                 "Geographical Queries requires  georel, geometry and coords  attributes.%s %s %s",
                 "georel not set!" if georel is None else ""
@@ -281,14 +281,13 @@ class OrionConnector:
         if condition_expression:
             condition["expression"] = condition_expression
 
-        subject = {"entities": entities, "condition": condition}
-        subscription["subject"] = subject
+        subscription["subject"] = {"entities": entities, "condition": condition}
 
         # Notification
         notification = {}
 
         # Check if one and only one is defined
-        if (notification_attrs is None) == (notification_attrs_blacklist is None):
+        if notification_attrs and notification_attrs_blacklist:
             raise Exception("One and only one of notification_attrs and notification_attrs_blacklist can be set")
         if notification_attrs:
             notification["attrs"] = notification_attrs
@@ -313,18 +312,30 @@ class OrionConnector:
 
         response = self._request(
                 method="POST", url=self.url_subscriptions, body=subscription, headers=self.header_payload)
+
         if response.status // 200 != 1:
             raise FiException(response.status,
                               "Error{}: {}".format(response.status, response.data.decode(self.codec)))
 
         return response.headers["location"].split('/')[-1], response.headers["location"]
 
-    def subscriptions(self, subscription_id=None, limit=None, offset=None, count=False):
+    def subscription(self, subscription_id=None):
         fields = {}
         url = self.url_subscriptions
 
         if subscription_id:
             url += '/' + subscription_id
+        response = self._request(
+            method="GET", url=url, fields=fields, headers=self.header_no_payload)
+        if response.status // 200 != 1:
+            raise FiException(response.status,
+                              "Error{}: {}".format(response.status, response.data.decode(self.codec)))
+        data = json.loads(response.data.decode(self.codec))
+        return data
+
+    def subscriptions(self, limit=None, offset=None, count=False):
+        fields = {}
+        url = self.url_subscriptions
         if limit:
             fields["limit"] = limit
         if offset:
@@ -338,8 +349,6 @@ class OrionConnector:
             raise FiException(response.status,
                               "Error{}: {}".format(response.status, response.data.decode(self.codec)))
         data = json.loads(response.data.decode(self.codec))
-        if type(data) is list and len(data) == 1:
-            return data[0]
 
         return data
 
@@ -380,13 +389,17 @@ class OrionConnector:
 
         # Notification
         notification = {}
-
+        # Check if one and only one is defined
+        if notification_attrs and notification_attrs_blacklist:
+            raise Exception("One and only one of notification_attrs and notification_attrs_blacklist can be set")
         if notification_attrs:
             notification["attrs"] = notification_attrs
         if notification_attrs_blacklist:
             notification["exceptAttrs"] = notification_attrs_blacklist
 
         # Check if one and only one is defined
+        if (http is None) == (http_custom is None):
+            raise Exception("One and only one of http and http_custom must be set: http or http_custom")
         if http:
             notification["http"] = {"url": http}
 
