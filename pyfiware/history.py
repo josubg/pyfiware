@@ -22,6 +22,11 @@ class HistoryConnector:
         self.host = host + "/" + version
         self.codec = codec
 
+    header_payload = {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+
     def scenario_create(self, scenario_id):
         response = self._pool_manager.request(method="POST", url="{0}/scenario/{1}".format(
             self.host, scenario_id))
@@ -54,8 +59,12 @@ class HistoryConnector:
             raise HistoryException(response.status,
                                    "Error{}: {}".format(response.status, response.data.decode(self.codec)))
 
-    def scenario_list(self):
-        response = self._pool_manager.request(method="GET", url="{0}/scenarios".format(self.host))
+    def scenario_list(self, user_id=None):
+        fields = {}
+        if user_id:
+            fields["user_id"] = user_id
+
+        response = self._pool_manager.request(method="GET", url="{0}/scenarios".format(self.host), fields=fields)
 
         if response.status // 200 != 1:
             raise HistoryException(response.status,
@@ -64,7 +73,7 @@ class HistoryConnector:
         return json.loads(response.data.decode(self.codec))
 
     def scenario_get(self, scenario_id):
-        url = "{}/scenario/{}".format(self.host, scenario_id)
+        url = "{0}/scenario/{1}".format(self.host, scenario_id)
         response = self._pool_manager.request(method="GET", url=url)
 
         if response.status // 200 != 1:
@@ -77,14 +86,18 @@ class HistoryConnector:
 
         return json.loads(response.data.decode(self.codec))
 
-    def entity_list(self, scenario_id, since=None, until="now", limit=9999, offset=0):
+    def entity_list(self, scenario_id, since=None, until=None, limit=9999, offset=0):
         fields = {
-            "max_time": until,
-            "limmit": limit,
+            "limit": limit,
             "offset": offset
         }
         if since:
-            fields["since"] = since
+            fields['time>'] = '{0}'.format(since.replace(tzinfo=timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')) \
+                if since.__class__ is datetime else since
+
+        if until:
+            fields['time<'] = '{0}'.format(until.replace(tzinfo=timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')) \
+                if until.__class__ is datetime else until
 
         response = self._pool_manager.request(
             method="GET", url="{0}/scenario/{1}/entities".format(self.host, scenario_id),
@@ -97,17 +110,22 @@ class HistoryConnector:
 
         return json.loads(response.data.decode(self.codec))
 
-    def entity_get(self, scenario_id, entity_type, entity_id, since=None, until=None, limit=9999, offset=0):
-
+    def entity_get(self, scenario_id, entity_type, entity_id, since=None, until=None, limit=9999, offset=0, attributes=None):
         fields = {
-            "max_time": until.replace(tzinfo=timezone.utc).timestamp()*1000\
-                if until.__class__ is datetime else until \
-                if until else datetime.now(tz=timezone.utc).timestamp()*1000,
+            "attributes": "*",
             "limit": limit,
             "offset": offset
         }
+        if attributes is not None:
+            fields['attributes'] = ','.join(attributes)
+
         if since:
-            fields["since"] = since
+            fields['time>'] = '{0}'.format(since.replace(tzinfo=timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')) \
+                if since.__class__ is datetime else since
+
+        if until:
+            fields['time<'] = '{0}'.format(until.replace(tzinfo=timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')) \
+                if until.__class__ is datetime else until
 
         response = self._pool_manager.request(
             method="GET", url="{0}/scenario/{1}/entity/{2}/{3}".format(self.host, scenario_id, entity_type, entity_id),
@@ -120,14 +138,20 @@ class HistoryConnector:
 
         return json.loads(response.data.decode(self.codec))
 
-    def entity_list_by_type(self, scenario_id, entity_type, since=None, until="now", limit=9999, offset=0):
+    def entity_list_by_type(self, scenario_id, entity_type, since=None, until=None, limit=9999, offset=0, attrs=None):
         fields = {
-            "max_time": until,
-            "limmit": limit,
+            "attributes": "*",
+            "limit": limit,
             "offset": offset
         }
         if since:
-            fields["since"] = since
+            fields['time>'] = '{0}'.format(since.replace(tzinfo=timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')) \
+                if since.__class__ is datetime else since
+
+        if until:
+            fields['time<'] = '{0}'.format(until.replace(tzinfo=timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')) \
+                if until.__class__ is datetime else until
+
         response = self._pool_manager.request(
             method="GET", url="{0}/scenario/{1}/entities/{2}".format(self.host, scenario_id, entity_type),
             fields=fields)
@@ -155,13 +179,22 @@ class HistoryConnector:
                                    "Error{}: {}".format(response.status, response.data.decode(self.codec)))
         return json.loads(response.data.decode(self.codec))
 
-    def entity_update(self, scenario_id, entity_type, entity_id, data):
+    def entity_update(self, scenario_id, entity_type, entity_id, **data):
         response = self._pool_manager.request(
-            method="POST", url="{0}/scenario/{1}/entities/{2}/{3}".format(
-                self.host, scenario_id, entity_type, entity_id),
-            body=data)
+            method="PATCH", url="{0}/scenario/{1}/entity/{2}/{3}".format(self.host, scenario_id, entity_type, entity_id),
+            body=json.dumps(data), headers=self.header_payload)
+
+        # if response.status // 200 != 1:
+        #     raise HistoryException(response.status,
+        #                            "Error{}: {}".format(response.status, response.data.decode(self.codec)))
+        return response.data
+
+    def entity_create(self, scenario_id, **data):
+        response = self._pool_manager.request(
+            method="POST", url="{0}/scenario/{1}/entity".format(self.host, scenario_id), body=json.dumps(data),
+            headers=self.header_payload)
 
         if response.status // 200 != 1:
             raise HistoryException(response.status,
                                    "Error{}: {}".format(response.status, response.data.decode(self.codec)))
-        return json.loads(response.data.decode(self.codec))
+        return response.data
