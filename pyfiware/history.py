@@ -165,7 +165,7 @@ class HistoryConnector:
                 if until.__class__ is datetime else until
 
         response = self._pool_manager.request(
-            method="GET", url="{0}/scenario/{1}/entities/{2}d".format(self.host, scenario_id, entity_type),
+            method="GET", url="{0}/scenario/{1}/entities/{2}".format(self.host, scenario_id, entity_type),
             headers=self.header_payload, fields=fields
         )
 
