@@ -1,3 +1,5 @@
+# pylint: disable=no-member
+
 from unittest import TestCase
 from unittest.mock import patch, Mock
 
@@ -154,7 +156,7 @@ class TestFiwareManagerSubscriptions(TestCase):
           }"""
     )))
     def test_subscription(self):
-        self.fiware_manager.subscriptions(subscription_id="fakeURL")
+        self.fiware_manager.subscription(subscription_id="fakeURL")
 
     @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=403,
@@ -162,7 +164,7 @@ class TestFiwareManagerSubscriptions(TestCase):
     )))
     def test_subscription_fails(self):
         with self.assertRaises(FiException):
-            self.fiware_manager.subscriptions(subscription_id="fakeURL")
+            self.fiware_manager.subscription(subscription_id="fakeURL")
 
     @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=201,
@@ -171,13 +173,14 @@ class TestFiwareManagerSubscriptions(TestCase):
     def test_subscription_update(self):
         ID = "FAKE"
 
-        self.fiware_manager.subscription_update(subscription_id=ID, status="active")
+        self.fiware_manager.subscription_update(subscription_id=ID, status="active", http="http://localhost:1234")
 
         self.fiware_manager._request.assert_called_with(
             method='PATCH',
             url=self.url + '/v2/subscriptions/' + ID,
             body={
-                "status": "active"
+                "status": "active",
+                'notification': {'http': {'url': 'http://localhost:1234'}}
             },
             headers={'Content-Type': 'application/json', 'Accept': 'application/json'}
         )
@@ -189,4 +192,4 @@ class TestFiwareManagerSubscriptions(TestCase):
     def test_subscription_update_fail(self):
         ID = "WRONG"
         with self.assertRaises(FiException):
-            self.fiware_manager.subscription_update(subscription_id=ID, status="active")
+            self.fiware_manager.subscription_update(subscription_id=ID, status="active", http="http://localhost:1234")

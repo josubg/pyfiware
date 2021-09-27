@@ -1,8 +1,9 @@
 from base64 import b64encode
 from json import loads
-from time import time
-from urllib3 import PoolManager
 from logging import getLogger
+from time import time
+
+from urllib3 import PoolManager
 
 logger = getLogger(__name__)
 

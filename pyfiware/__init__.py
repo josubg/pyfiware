@@ -1,6 +1,7 @@
-from urllib3 import PoolManager
 import json
 from logging import getLogger
+
+from urllib3 import PoolManager
 
 logger = getLogger(__name__)
 
@@ -40,12 +41,20 @@ class OrionConnector:
         :param value: service paths as list
         :return:
         """
+
+        # removing trailing slashes is needed to modify the
+        # service path for hierarchical search.
+        # For Orion it makes no differences if '/foo' or '/foo///'
+        # is used.
         if value is None:
             self._service_path = None
         elif type(value) == list:
             self._service_path = ", ".join([sp.rstrip("/") for sp in value])
         elif type(value) == str:
-            self._service_path = value.rstrip("/")
+            if value != "/":
+                self._service_path = value.rstrip("/")
+            else:
+                self._service_path = value
         else:
             raise Exception("service_path must be list or string")
 
@@ -144,7 +153,7 @@ class OrionConnector:
         headers = self.header_no_payload.copy()
         if hierarchical_search:
             if not self._service_path:
-                raise FiException("Hierarchical search does not work without service path.")
+                raise FiException(None, "Hierarchical search does not work without service path.")
             elif ", " in self._service_path:
                 headers["Fiware-ServicePath"] = ", ".join([sp + "/#" for sp in self.service_path.split(", ")])
             else:
@@ -152,19 +161,19 @@ class OrionConnector:
 
         if georel and geometry and coords:
             if not (georel in ["coveredBy", "intersects", "equals", "disjoint"] or georel.startswith("near")):
-                raise FiException("(%s) is not a valid spatial relationship(georel).", georel)
+                raise FiException(None, f"({georel}) is not a valid spatial relationship(georel).")
             if geometry not in ["point", "line", "polygon", "box"]:
-                raise FiException("(%s) is not a valid geometry.", geometry)
+                raise FiException(None, f"({geometry}) is not a valid geometry.")
             fields["georel"] = georel
             fields["geometry"] = geometry
             fields["coords"] = coords
 
         elif georel or geometry or coords:
-            raise FiException(
-                "Geographical Queries requires  georel, geometry and coords  attributes.%s %s %s",
-                "georel not set!" if georel is None else ""
-                "geometry not set!" if geometry is None else "",
-                "coords not set!" if coords is None else ""
+            raise FiException(None,
+                f"Geographical Queries requires  georel, geometry and coords  attributes. \
+                    {'georel not set!' if georel is None else ''} \
+                    {'geometry not set!' if geometry is None else ''} \
+                    {'coords not set!' if coords is None else ''}"
             )
 
         logger.debug("REQUEST to %s\n %s ", self.url_entities, fields)
@@ -184,7 +193,7 @@ class OrionConnector:
         :param entity_type: The entity type that the entities must match .
         :param id_pattern: The entity id pattern that the entities must match.
         :param query: The query that the entities must match.
-        :param limit: The limit of returned entities. Zero, the default value, means unlimited
+        :param limit: The limit of returned entities. Zero, the default value, means 1000 (max limit of Orion)
         :param offset: The offset of returned entities, for paginated search.
         :param geometry: Geometry form used to spacial limit the query: "point", "line", "polygon", "box"
         :param georel: Relation between the geometry an  the entities: "coveredBy", "intersects", "equals", "disjoint"
@@ -211,7 +220,7 @@ class OrionConnector:
         headers = self.header_no_payload.copy()
         if hierarchical_search:
             if not self._service_path:
-                raise FiException("Hierarchical search does not work without service path.")
+                raise FiException(None, "Hierarchical search does not work without service path.")
             elif ", " in self._service_path:
                 headers["Fiware-ServicePath"] = ", ".join([sp + "/#" for sp in self.service_path.split(", ")])
             else:
@@ -219,19 +228,19 @@ class OrionConnector:
 
         if georel and geometry and coords:
             if not (georel in ["coveredBy", "intersects", "equals", "disjoint"] or georel.startswith("near")):
-                raise FiException("(%s) is not a valid spatial relationship(georel).", georel)
+                raise FiException(None, f"({georel}) is not a valid spatial relationship(georel).")
             if geometry not in ["point", "line", "polygon", "box"]:
-                raise FiException("(%s) is not a valid geometry.", geometry)
+                raise FiException(None, f"({geometry}) is not a valid geometry.")
             fields["georel"] = georel
             fields["geometry"] = geometry
             fields["coords"] = coords
 
         elif georel or geometry or coords:
-            raise FiException(
-                "Geographical Queries requires  georel, geometry and coords  attributes.%s %s %s",
-                "georel not set!" if georel is None else ""
-                "geometry not set!" if geometry is None else "",
-                "coords not set!" if coords is None else ""
+            raise FiException(None,
+                f"Geographical Queries requires  georel, geometry and coords  attributes. \
+                    {'georel not set!' if georel is None else ''} \
+                    {'geometry not set!' if geometry is None else ''} \
+                    {'coords not set!' if coords is None else ''}"
             )
 
         logger.debug("REQUEST to %s\n %s ", self.url_entities, fields)
@@ -322,10 +331,10 @@ class OrionConnector:
         response = self._request(
                 method="PATCH", url=url, body=attributes, headers=self.header_payload)
         if response.status // 200 != 1:
-            if response.status != 404:
+            if response.status == 404:
                 logger.debug("Not found: %s", url)
-                raise FiException(response.status,
-                                  "Error{}: {}".format(response.status, response.data.decode(self.codec)))
+            raise FiException(response.status,
+                                "Error{}: {}".format(response.status, response.data.decode(self.codec)))
 
     def update(self, element_id, element_type, **attributes):
         url = self.url_entities + "/" + element_id + "/attrs?type=" + element_type
@@ -333,10 +342,10 @@ class OrionConnector:
         response = self._request(
                 method="POST", url=url, body=attributes, headers=self.header_payload)
         if response.status // 200 != 1:
-            if response.status != 404:
+            if response.status == 404:
                 logger.debug("Not found: %s", url)
-                raise FiException(response.status,
-                                  "Error{}: {}".format(response.status, response.data.decode(self.codec)))
+            raise FiException(response.status,
+                                "Error{}: {}".format(response.status, response.data.decode(self.codec)))
 
     def delete_attribute(self, element_id, element_type, attribute_name):
         url = self.url_entities + "/" + element_id + "/attrs/" + attribute_name + "?type=" + element_type
@@ -344,10 +353,10 @@ class OrionConnector:
         response = self._request(
                 method="DELETE", url=url)
         if response.status // 200 != 1:
-            if response.status != 404:
+            if response.status == 404:
                 logger.debug("Not found: %s", url)
-                raise FiException(response.status,
-                                  "Error{}: {}".format(response.status, response.data.decode(self.codec)))
+            raise FiException(response.status,
+                                "Error{}: {}".format(response.status, response.data.decode(self.codec)))
 
     def batch_update(self, action_type, entities):
         """ Create/Modify/Delete multiple entities at once in the context broker.
@@ -478,6 +487,8 @@ class OrionConnector:
             raise FiException(response.status,
                               "Error{}: {}".format(response.status, response.data.decode(self.codec)))
         data = json.loads(response.data.decode(self.codec))
+        if type(data) == list and len(data) == 1:
+            data = data[0]
 
         return data
 
@@ -518,7 +529,7 @@ class OrionConnector:
 
         # Notification
         notification = {}
-        # Check if one and only one is defined
+        # Check if only one is defined
         if notification_attrs and notification_attrs_blacklist:
             raise Exception("One and only one of notification_attrs and notification_attrs_blacklist can be set")
         if notification_attrs:
@@ -526,8 +537,8 @@ class OrionConnector:
         if notification_attrs_blacklist:
             notification["exceptAttrs"] = notification_attrs_blacklist
 
-        # Check if one and only one is defined
-        if (http is None) == (http_custom is None):
+        # Check if only one is defined
+        if http and http_custom:
             raise Exception("One and only one of http and http_custom must be set: http or http_custom")
         if http:
             notification["http"] = {"url": http}

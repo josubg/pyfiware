@@ -1,3 +1,5 @@
+# pylint: disable=no-member
+
 import json
 from unittest import TestCase
 from pyfiware import OrionConnector, FiException
@@ -67,7 +69,7 @@ class TestFiwareManagerSubscriptions(TestCaseFiwareSubscriptions):
         expected_sub = {
             'id': sid,
             'description': "One subscription to rule them all",
-            'expires': "2016-04-05T14:00:00.00Z",
+            'expires': "2016-04-05T14:00:00.000Z",
             'throttling': 5,
             'status': 'expired',
             'subject': {
@@ -80,10 +82,9 @@ class TestFiwareManagerSubscriptions(TestCaseFiwareSubscriptions):
             'notification': {
                 'attrs': ["temperature", "humidity"],
                 'attrsFormat': 'normalized',
-                'http': {'url': 'http://localhost:1234'}
+                'http': {'url': 'http://localhost:1234'},
+                'onlyChangedAttrs': False
             }
-
-
         }
         subscription = self._get_subscription(url)
         self._delete_subscription(url)
@@ -214,7 +215,7 @@ class TestFiwareManagerSubscriptions(TestCaseFiwareSubscriptions):
         expected_sub = {
             'id': sid,
             'description': "One subscription to rule them all",
-            'expires': "2016-04-05T14:00:00.00Z",
+            'expires': "2016-04-05T14:00:00.000Z",
             'throttling': 5,
             'status': 'expired',
             'subject': {
@@ -227,11 +228,12 @@ class TestFiwareManagerSubscriptions(TestCaseFiwareSubscriptions):
             'notification': {
                 'attrs': ["temperature", "humidity"],
                 'attrsFormat': 'normalized',
-                'http': {'url': 'http://localhost:1234'}
+                'http': {'url': 'http://localhost:1234'},
+                'onlyChangedAttrs': False
             }
 
         }
-        subscription = self.fiware_manager.subscriptions(subscription_id=sid)
+        subscription = self.fiware_manager.subscription(subscription_id=sid)
         self._delete_subscription(url)
         self.assertEqual(expected_sub, subscription)
 
@@ -331,7 +333,7 @@ class TestFiwareManagerSubscriptions(TestCaseFiwareSubscriptions):
         expected_sub = {
             'id': sid2,
             'description': "One subscription to rule them all",
-            'expires': "2016-04-05T14:00:00.00Z",
+            'expires': "2016-04-05T14:00:00.000Z",
             'throttling': 5,
             'status': 'expired',
             'subject': {
@@ -344,7 +346,8 @@ class TestFiwareManagerSubscriptions(TestCaseFiwareSubscriptions):
             'notification': {
                 'attrs': ["temperature", "humidity"],
                 'attrsFormat': 'normalized',
-                'http': {'url': 'http://localhost:1234'}
+                'http': {'url': 'http://localhost:1234'},
+                'onlyChangedAttrs': False
             }
 
         }
@@ -360,7 +363,7 @@ class TestFiwareManagerSubscriptions(TestCaseFiwareSubscriptions):
 
     def test_subscription_fails(self):
         with self.assertRaises(FiException):
-            self.fiware_manager.subscriptions(subscription_id="fakeURL")
+            self.fiware_manager.subscription(subscription_id="fakeURL")
 
     def test_subscription_update(self):
         sid, url = self._create_subscription({
@@ -396,7 +399,7 @@ class TestFiwareManagerSubscriptions(TestCaseFiwareSubscriptions):
         expected_sub = {
             'id': sid,
             'description': "One subscription to rule them all",
-            'expires': "2016-04-05T14:00:00.00Z",
+            'expires': "2016-04-05T14:00:00.000Z",
             'throttling': 5,
             'status': 'expired',
             'subject': {
@@ -409,18 +412,19 @@ class TestFiwareManagerSubscriptions(TestCaseFiwareSubscriptions):
             'notification': {
                 'attrs': ["temperature", "humidity"],
                 'attrsFormat': 'normalized',
-                'http': {'url': 'http://localhost:1234'}
+                'http': {'url': 'http://localhost:1234'},
+                'onlyChangedAttrs': False
             }
 
         }
         subscription = self._get_subscription(url)
 
-        self.assertEquals(expected_sub, subscription)
+        self.assertEqual(expected_sub, subscription)
         expected_sub["throttling"] = 7
         self.fiware_manager.subscription_update(subscription_id=sid, throttling=7)
         subscription = self._get_subscription(url)
 
-        self.assertEquals(expected_sub, subscription)
+        self.assertEqual(expected_sub, subscription)
         self._delete_subscription(url)
 
     def test_subscription_update_fail(self):

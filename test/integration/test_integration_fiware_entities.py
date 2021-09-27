@@ -1,3 +1,5 @@
+# pylint: disable=no-member
+
 import json
 from unittest import TestCase
 
@@ -146,11 +148,11 @@ class TestFiwareManagerCreations(FiwareTestCase):
 
     def test_create_no_id(self):
         with self.assertRaises(Exception):
-            self.fiware_manager.create(entity_type="fake")
+            self.fiware_manager.create(entity_type="fake") # pylint: disable=no-value-for-parameter
 
     def test_create_no_type(self):
         with self.assertRaises(Exception):
-            self.fiware_manager.create(element_id="Fake1")
+            self.fiware_manager.create(element_id="Fake1") # pylint: disable=no-value-for-parameter
 
     def test_create_parameters(self):
         self.fiware_manager.create(element_id="Fake1", element_type="FakeType", weight=300, size="100l")
@@ -160,7 +162,7 @@ class TestFiwareManagerCreations(FiwareTestCase):
         self.assertEqual(element["id"], "Fake1")
         self.assertEqual(element["type"], "FakeType")
         self.assertEqual(element["weight"], {'value': 300, 'type': 'Integer'})
-        self.assertEqual(element["size"], {'value': '100l', 'type': 'Text'})
+        self.assertEqual(element["size"], {'value': '100l', 'type': 'String'})
 
     def test_create_dict(self):
         self.fiware_manager.create(element_id="Fake1", element_type="FakeType", **{'weight': 300, 'size': "100l"})
@@ -170,7 +172,7 @@ class TestFiwareManagerCreations(FiwareTestCase):
         self.assertEqual(element["id"], "Fake1")
         self.assertEqual(element["type"], "FakeType")
         self.assertEqual(element["weight"], {'value': 300, 'type': 'Integer'})
-        self.assertEqual(element["size"], {'value': '100l', 'type': 'Text'})
+        self.assertEqual(element["size"], {'value': '100l', 'type': 'String'})
 
     def test_create_raises(self):
         self.fiware_manager.create(element_id="Fake1", element_type="fake", **{'weight': 300, 'size': "100l"})
@@ -245,36 +247,7 @@ class TestFiwareManagerPatch(FiwareTestCase):
         }
 
         with self.assertRaises(FiException):
-            self.fiware_manager.patch(element_id="WrongID", **attributes)
-
-    def test_patch_fails_silent(self):
-        attributes = {
-            "temperature": {
-                "value": 26.5,
-                "type": "Float"
-            },
-            "pressure": {
-                "value": 763,
-                "type": "Float"
-            }
-        }
-
-        self.fiware_manager.patch(element_id="WrongID", silent=True, **attributes)
-
-    def test_patch_fails_no_silent(self):
-        attributes = {
-            "temperature": {
-                "value": 26.5,
-                "type": "Float"
-            },
-            "pressure": {
-                "value": 763,
-                "type": "Float"
-            }
-        }
-
-        with self.assertRaises(FiException):
-            self.fiware_manager.patch(element_id="WrongID>", silent=True, **attributes)
+            self.fiware_manager.patch(element_id="WrongID", element_type="Fake", **attributes)
 
     def test_patch_success(self):
         attributes = {
@@ -288,7 +261,7 @@ class TestFiwareManagerPatch(FiwareTestCase):
             }
         }
 
-        self.fiware_manager.patch(element_id="Fake1", **attributes)
+        self.fiware_manager.patch(element_id="Fake1", element_type="Fake", **attributes)
         e = self._get_entity("Fake1")
 
         self.assertEqual(e["temperature"]["value"], 30)
@@ -311,7 +284,7 @@ class TestFiwareManagerScope(FiwareTestCase):
                     "type": "Integer"
                 }
             })
-        self.fiware_manager.scopes = "/test/testa"
+        self.fiware_manager.service_path = "/test/testa"
         self._create_entity({
             "id": "Fake2",
             "type": "Fake",
@@ -324,28 +297,28 @@ class TestFiwareManagerScope(FiwareTestCase):
                 "type": "Integer"
             }
         })
-        self.fiware_manager.scopes = None
+        self.fiware_manager.service_path = None
 
     def test_get(self):
         self.assertIsNotNone(self.fiware_manager.get('Fake1'))
         self.assertIsNotNone(self.fiware_manager.get('Fake2'))
-        self.fiware_manager.scopes = "/"
+        self.fiware_manager.service_path = "/"
 
         self.assertIsNotNone(self.fiware_manager.get('Fake1'))
         self.assertIsNone(self.fiware_manager.get('Fake2'))
-        self.fiware_manager.scopes = "/#"
+        self.fiware_manager.service_path = "/#"
 
         self.assertIsNotNone(self.fiware_manager.get('Fake1'))
         self.assertIsNotNone(self.fiware_manager.get('Fake2'))
 
-        self.fiware_manager.scopes = "/test/#"
+        self.fiware_manager.service_path = "/test/#"
         self.assertIsNone(self.fiware_manager.get('Fake1'))
         self.assertIsNotNone(self.fiware_manager.get('Fake2'))
 
-        self.fiware_manager.scopes = "/test/testb"
+        self.fiware_manager.service_path = "/test/testb"
         self.assertIsNone(self.fiware_manager.get('Fake1'))
         self.assertIsNone(self.fiware_manager.get('Fake2'))
 
-        self.fiware_manager.scopes = None
+        self.fiware_manager.service_path = None
         self.assertIsNotNone(self.fiware_manager.get('Fake1'))
         self.assertIsNotNone(self.fiware_manager.get('Fake2'))
