@@ -43,13 +43,13 @@ class OrionConnector:
         if value is None:
             self._service_path = None
         elif type(value) == list:
-            self._service_path = ", ".join(value)
+            self._service_path = ", ".join([sp.rstrip("/") for sp in value])
         elif type(value) == str:
-            self._service_path = value
+            self._service_path = value.rstrip("/")
         else:
             raise Exception("service_path must be list or string")
 
-    def __init__(self, host, codec="utf-8", service=None, service_path=None, oauth_connector=None):
+    def __init__(self, host, codec="utf-8", service=None, service_path=None, oauth_connector=None, authorization_header_name="X-Auth-Token"):
         """ Initialize the connector.
 
         :param host: The url of the NGSI API  (Ending  '/' will be removed )
@@ -64,6 +64,7 @@ class OrionConnector:
         self.url_entities = self.base_url + "/entities"
         self.url_types = self.base_url + "/type"
         self.url_subscriptions = self.base_url + "/subscriptions"
+        self.url_batch_update = self.base_url + "/op/update"
         self.batch = self.base_url
 
         self.codec = codec
@@ -73,6 +74,7 @@ class OrionConnector:
 
         # OAUTH
         self.oauth = oauth_connector
+        self.authorization_header_name = authorization_header_name
 
     def _request(self, body=None, **kwargs):
         """Send a request to the Context Broker"""
@@ -81,26 +83,32 @@ class OrionConnector:
         headers = kwargs.pop("headers", {}).copy()
         if self.service:
             headers["Fiware-Service"] = self.service
-        if self.service_path:
+        if self.service_path and "Fiware-ServicePath" not in headers:
             headers["Fiware-ServicePath"] = self.service_path
         if self.oauth:
-            headers["X-Auth-Token"] = self.oauth.token
+            headers[self.authorization_header_name] = self.oauth.token
         logger.debug("URL %s\nHEADERS %s\nBODY %s\n", kwargs['url'], headers, body)
         return self._pool_manager.request(body=body, headers=headers, **kwargs)
 
-    def get(self, entity_id, entity_type=None):
-        """ Get an entity form the context by its ID . If orion responses not found a None is returned.
+    def get(self, entity_id, entity_type=None, key_values=False):
+        """ Get an entity from the context by its ID. If Orion responses not found a None is returned.
 
-        :param entity_id: The ID of the entity tha is retrieved
-        :param entity_type: The entity type that the entities must match .
+        :param entity_id: The ID of the entity that is retrieved.
+        :param entity_type: The entity type that the entities must match.
+        :param key_values: Wether a full NGSIv2 entity should be returned or only a keyValues model
 
         :return: The entity or None
         """
         get_url = self.url_entities + '/' + entity_id
+
+        fields = {}
+
         if entity_type:
-            get_url += "?type=" + entity_type
+            fields["type"] = entity_type
+        if key_values:
+            fields["options"] = "keyValues"
         response = self._request(
-                method="GET", url=get_url, headers=self.header_no_payload)
+                method="GET", url=get_url, headers=self.header_no_payload, fields=fields)
         if response.status // 200 != 1:
             if response.status == 404:
                 logger.debug("Not found: %s", get_url)
@@ -110,7 +118,7 @@ class OrionConnector:
         return json.loads(response.data.decode(self.codec))
 
     def count(self, entity_type=None, id_pattern=None, query=None,
-              georel=None, geometry=None, coords=None):
+              georel=None, geometry=None, coords=None, hierarchical_search=False):
         """ Get the  total amount of entities that match the provided entity class, id pattern and/or query.
 
         :param entity_type: The entity type that the entities must match .
@@ -119,8 +127,9 @@ class OrionConnector:
         :param geometry: Geometry form used to spacial limit the query: "point", "line", "polygon", "box"
         :param georel: Relation between the geometry an  the entities: "coveredBy", "intersects", "equals", "disjoint"
         :param coords: Semicolon separated list of coordinates(coma separated) Ex: "45.7878,3.455454;41.7878,5.455454"
+        :param hierarchical_search: Search only in this servicePath or in all sub servicePaths as well
 
-        :return: The aumount of entities
+        :return: The amount of entities
         """
         fields = {"options": "count",
                   "limit": 1
@@ -132,6 +141,15 @@ class OrionConnector:
         if query:
             fields["q"] = query
 
+        headers = self.header_no_payload.copy()
+        if hierarchical_search:
+            if not self._service_path:
+                raise FiException("Hierarchical search does not work without service path.")
+            elif ", " in self._service_path:
+                headers["Fiware-ServicePath"] = ", ".join([sp + "/#" for sp in self.service_path.split(", ")])
+            else:
+                headers["Fiware-ServicePath"] = self.service_path + "/#"
+
         if georel and geometry and coords:
             if not (georel in ["coveredBy", "intersects", "equals", "disjoint"] or georel.startswith("near")):
                 raise FiException("(%s) is not a valid spatial relationship(georel).", georel)
@@ -151,7 +169,7 @@ class OrionConnector:
 
         logger.debug("REQUEST to %s\n %s ", self.url_entities, fields)
         response = self._request(
-                method="GET",  url=self.url_entities, headers=self.header_no_payload, fields=fields)
+                method="GET",  url=self.url_entities, headers=headers, fields=fields)
         if response.status // 200 != 1:
             if response.status == 404:
                 logger.info("Not found: %s, \nfields: %s", self.url_entities, fields)
@@ -160,7 +178,7 @@ class OrionConnector:
         return int(response.headers["fiware-total-count"])
 
     def search(self, entity_type=None, id_pattern=None, query=None,
-               georel=None, geometry=None, coords=None, limit=0, offset=0):
+               georel=None, geometry=None, coords=None, limit=0, offset=0, key_values=False, hierarchical_search=False):
         """ Get the list of the entities that match the provided entity class, id pattern and/or query.
 
         :param entity_type: The entity type that the entities must match .
@@ -171,10 +189,15 @@ class OrionConnector:
         :param geometry: Geometry form used to spacial limit the query: "point", "line", "polygon", "box"
         :param georel: Relation between the geometry an  the entities: "coveredBy", "intersects", "equals", "disjoint"
         :param coords: Semicolon separated list of coordinates(coma separated) Ex: "45.7878,3.455454;41.7878,5.455454"
+        :param key_values: Wether a full NGSIv2 entity should be returned or only a keyValues model
+        :param hierarchical_search: Search only in this servicePath or in all sub servicePaths as well
 
         :return: A list of entities or None
         """
-        fields = {"options": "count",
+        options = "count"
+        if key_values:
+            options = options + ",keyValues"
+        fields = {"options": options,
                   "limit": limit if limit and limit <= 1000 else 1000}
         if offset:
             fields["offset"] = offset
@@ -184,6 +207,15 @@ class OrionConnector:
             fields["idPattern"] = id_pattern
         if query:
             fields["q"] = query
+
+        headers = self.header_no_payload.copy()
+        if hierarchical_search:
+            if not self._service_path:
+                raise FiException("Hierarchical search does not work without service path.")
+            elif ", " in self._service_path:
+                headers["Fiware-ServicePath"] = ", ".join([sp + "/#" for sp in self.service_path.split(", ")])
+            else:
+                headers["Fiware-ServicePath"] = self.service_path + "/#"
 
         if georel and geometry and coords:
             if not (georel in ["coveredBy", "intersects", "equals", "disjoint"] or georel.startswith("near")):
@@ -204,7 +236,7 @@ class OrionConnector:
 
         logger.debug("REQUEST to %s\n %s ", self.url_entities, fields)
         response = self._request(
-                method="GET",  url=self.url_entities, headers=self.header_no_payload, fields=fields)
+                method="GET",  url=self.url_entities, headers=headers, fields=fields)
         if response.status // 200 != 1:
             if response.status == 404:
                 logger.info("Not found: %s, \nfields: %s", self.url_entities, fields)
@@ -216,7 +248,9 @@ class OrionConnector:
         if not limit:
             limit = total_count
         if total_count - offset >= limit > count:
-            results.extend(self.search(entity_type, id_pattern, query,  limit=limit-count, offset=offset + count))
+            results.extend(self.search(entity_type=entity_type, id_pattern=id_pattern, query=query,
+               georel=georel, geometry=geometry, coords=coords, limit=limit-count, offset=offset + count, key_values=key_values, hierarchical_search=hierarchical_search))
+
         return results
 
     def delete(self, entity_id, silent=False, entity_type=None):
@@ -292,6 +326,51 @@ class OrionConnector:
                 logger.debug("Not found: %s", url)
                 raise FiException(response.status,
                                   "Error{}: {}".format(response.status, response.data.decode(self.codec)))
+
+    def update(self, element_id, element_type, **attributes):
+        url = self.url_entities + "/" + element_id + "/attrs?type=" + element_type
+
+        response = self._request(
+                method="POST", url=url, body=attributes, headers=self.header_payload)
+        if response.status // 200 != 1:
+            if response.status != 404:
+                logger.debug("Not found: %s", url)
+                raise FiException(response.status,
+                                  "Error{}: {}".format(response.status, response.data.decode(self.codec)))
+
+    def delete_attribute(self, element_id, element_type, attribute_name):
+        url = self.url_entities + "/" + element_id + "/attrs/" + attribute_name + "?type=" + element_type
+
+        response = self._request(
+                method="DELETE", url=url)
+        if response.status // 200 != 1:
+            if response.status != 404:
+                logger.debug("Not found: %s", url)
+                raise FiException(response.status,
+                                  "Error{}: {}".format(response.status, response.data.decode(self.codec)))
+
+    def batch_update(self, action_type, entities):
+        """ Create/Modify/Delete multiple entities at once in the context broker.
+
+        Examples:
+
+            fiware_manager.batch_update(action_type="append", entities=[{"type": "Room", "id": "Room3", "temperate": {"value": 29.9, "type": "Float"}}])
+
+        :param action_type: Can be one of "append", "appendStrict", "update", "delete" or "replace"
+        :param entities: A list of entities
+
+        :return: Nothing
+        """
+
+        body = {
+                "actionType": action_type,
+                "entities": entities
+               }
+
+        response = self._request(
+            method="POST", url=self.url_batch_update, body=body, headers=self.header_payload)
+        if response.status // 200 != 1:
+            raise FiException(response.status, "Error{}: {}".format(response.status, response.data.decode(self.codec)))
 
     def unsubscribe(self, url=None, subscription_id=None):
         if (url is None) == (subscription_id is None):
