@@ -1,3 +1,5 @@
+# pylint: disable=no-member
+
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
@@ -45,7 +47,8 @@ class TestFiwareManagerQueries(TestCase):
             url=self.url + '/v2/entities/' + correct_id,
             headers={
                 'Accept': 'application/json'
-            }
+            },
+            fields={}
         )
 
     @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
@@ -68,7 +71,8 @@ class TestFiwareManagerQueries(TestCase):
 
     @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=200,
-        data='[{"id":"CorrectID","type":"fake"}]'
+        data='[{"id":"CorrectID","type":"fake"}]',
+        headers={"fiware-total-count":1}
     )))
     def test_get_single_result(self):
         response = self.fiware_manager.search(entity_type="fake")
@@ -78,7 +82,8 @@ class TestFiwareManagerQueries(TestCase):
     @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
             status=200,
             data='[{"id":"1","type":"fake"},' +
-            '{"id":"2","type":"fake"}]'
+            '{"id":"2","type":"fake"}]',
+            headers={"fiware-total-count": 2}
     )))
     def test_get_multiple_result(self):
         response = self.fiware_manager.search()
@@ -97,7 +102,8 @@ class TestFiwareManagerQueries(TestCase):
 
     @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=200,
-        data='[{"id":"CorrectID","type":"fake"}]'
+        data='[{"id":"CorrectID","type":"fake"}]',
+        headers={"fiware-total-count": 1}
     )))
     def test_get_queries_id_pattern(self):
         self.fiware_manager.search(id_pattern="id*/")
@@ -108,13 +114,15 @@ class TestFiwareManagerQueries(TestCase):
                 'Accept': 'application/json'
             },
             fields={
-                'idPattern': "id*/"
-            }
+                'options': 'count',
+                'limit': 1000,
+                'idPattern': 'id*/'}
         )
 
     @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
             status=200,
-            data='[{"id":"CorrectID","type":"fake"}]'
+            data='[{"id":"CorrectID","type":"fake"}]',
+            headers={"fiware-total-count": 1}
         )))
     def test_get_queries_type(self):
         self.fiware_manager.search(query="something > 500")
@@ -125,8 +133,9 @@ class TestFiwareManagerQueries(TestCase):
                 'Accept': 'application/json'
             },
             fields={
-                "q": "something > 500"
-            }
+                'options': 'count',
+                'limit': 1000,
+                'q': 'something > 500'}
         )
 
 
@@ -175,7 +184,7 @@ class TestFiwareManagerCreations(TestCase):
                            'type': 'Integer'
                            },
                 'size': {'value': "100l",
-                         'type': "Text"}
+                         'type': "String"}
             }
         )
 
@@ -199,7 +208,7 @@ class TestFiwareManagerCreations(TestCase):
                            'type': 'Integer'
                            },
                 'size': {'value': "100l",
-                         'type': "Text"}
+                         'type': "String"}
             }
         )
 
@@ -217,7 +226,7 @@ class TestFiwareManagerCreations(TestCase):
     )))
     def test_create_no_id(self):
         with self.assertRaises(TypeError):
-            self.fiware_manager.create(entity_type="fake")
+            self.fiware_manager.create(entity_type="fake") # pylint: disable=no-value-for-parameter
 
     @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
         status=201,
@@ -225,7 +234,7 @@ class TestFiwareManagerCreations(TestCase):
     )))
     def test_create_no_type(self):
         with self.assertRaises(TypeError):
-            self.fiware_manager.create(element_id="1")
+            self.fiware_manager.create(element_id="1") # pylint: disable=no-value-for-parameter
 
 
 class TestFiwareManagerDeletions(TestCase):
@@ -295,10 +304,10 @@ class TestFiwareManagerPatch(TestCase):
             }
         }
 
-        self.fiware_manager.patch(element_id="1", **attributes)
+        self.fiware_manager.patch(element_id="1", element_type="FAKE", **attributes)
         self.fiware_manager._request.assert_called_with(
             method='PATCH',
-            url=self.url + '/v2/entities/' + "1" + "/attrs",
+            url=self.url + '/v2/entities/' + "1" + "/attrs" + "?type=" + "FAKE",
             body={
                  "pressure": {
                      "value": 763,
@@ -333,45 +342,7 @@ class TestFiwareManagerPatch(TestCase):
         }
 
         with self.assertRaises(FiException):
-            self.fiware_manager.patch(element_id="1", **attributes)
-
-    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
-        status=404,
-        data=''
-    )))
-    def test_patch_fails_silent(self):
-        attributes = {
-            "temperature": {
-                "value": 26.5,
-                "type": "Float"
-            },
-            "pressure": {
-                "value": 763,
-                "type": "Float"
-            }
-        }
-
-        self.fiware_manager.patch(element_id="1", silent=True, **attributes)
-
-    @patch.object(OrionConnector, "_request", Mock(return_value=DummyResponse(
-        status=500,
-        data=''
-    )))
-    def test_patch_fails_no_silent(self):
-        attributes = {
-            "temperature": {
-                "value": 26.5,
-                "type": "Float"
-            },
-            "pressure": {
-                "value": 763,
-                "type": "Float"
-            }
-        }
-
-        with self.assertRaises(FiException):
-            self.fiware_manager.patch(element_id="1", silent=True, **attributes)
-
+            self.fiware_manager.patch(element_id="1", element_type="FAKE", **attributes)
 
 # class TestFiwareManagerScope(TestCase):
 #     url = "http://127.0.0.1:1026"

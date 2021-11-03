@@ -1,8 +1,8 @@
-from urllib3 import PoolManager
 import json
 from datetime import datetime, timezone
 from logging import getLogger
 
+from urllib3 import PoolManager
 
 logger = getLogger(__name__)
 

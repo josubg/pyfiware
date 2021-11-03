@@ -1,16 +1,18 @@
 from base64 import b64encode
 from json import loads
-from time import time
-from urllib3 import PoolManager
 from logging import getLogger
+from time import time
+
+from urllib3 import PoolManager
 
 logger = getLogger(__name__)
 
 
 class OAuthManager:
 
-    def __init__(self,  oauth_server_url, client_id, client_secret, user, password, codec="utf-8",
-                 token=None, refresh_token=None,  secure_lapse=10):
+    def __init__(self,  oauth_server_url=None, client_id=None, client_secret=None,
+                 user=None, password=None, codec="utf-8", token=None,
+                 refresh_token=None, secure_lapse=10, scopes=None):
         self.codec = codec
         self.oauth_server = oauth_server_url
         self.user = user
@@ -24,6 +26,7 @@ class OAuthManager:
         self._refresh_token = refresh_token
         self._expiration = None
         self.secure_lapse = secure_lapse
+        self.scopes = scopes
 
     def _encode(self, ):
         self.packed_Auth = b64encode(bytes("{0}:{1}".format(
@@ -39,11 +42,15 @@ class OAuthManager:
                     self._login()
         else:
             self._login()
+        if self._bearer.lower() == "bearer":
+            return f"Bearer {self._token}"
         return self._token
 
     @property
     def expired(self):
-        return time() >= self._expiration - self.secure_lapse
+        if self._expiration is not None:
+            return time() >= self._expiration - self.secure_lapse
+        return False
 
     @property
     def client_id(self):
@@ -70,6 +77,8 @@ class OAuthManager:
                    "Content-Type": "application/x-www-form-urlencoded"
                    }
         body = "grant_type=password&username=" + self.user + "&password=" + self.password
+        if self.scopes:
+            body = body + "&scope=" + " ".join(self.scopes)
 
         logger.debug("URL %s\nHEADERS %s\nBODY %s\n", url, headers, body)
         try :
